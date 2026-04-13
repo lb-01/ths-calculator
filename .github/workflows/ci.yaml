@@ -1,0 +1,13 @@
+name: Calculator CI
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  replace-me-later:
+     name: Dummy Job
+     runs-on: ubuntu-latest
+     steps:
+       - name: Say Hello
+         run: echo "Hello World"

@@ -1,0 +1,35 @@
+{
+  "name": "lb-calculator",
+  "version": "0.0.1",
+  "description": "NodeJS module",
+  "main": "lib/index.js",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "prettier:format": "prettier --write \"lib/**/*.js\"",
+    "prettier:check": "prettier --check \"lib/**/*.js\"",
+    "lint:check": "eslint \"lib/**/*.js\"",
+    "lint:fix": "eslint \"lib/**/*.js\" --fix"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lb-01/master-module.git"
+  },
+  "keywords": [
+    "module"
+  ],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/lb-01/master-module/issues"
+  },
+  "homepage": "https://github.com/lb-01/master-module#readme",
+  "devDependencies": {
+    "@vitest/coverage-v8": "^2.1.8",
+    "eslint": "^9.39.1",
+    "prettier": "^3.6.2",
+    "vitest": "^2.1.8"
+  }
+}

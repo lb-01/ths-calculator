@@ -1,0 +1,423 @@
+name: Prepare Repository
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  create-project-board:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get organisation and repo id
+        uses: actions/github-script@v9
+        id: get_org_owner_id
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            core.startGroup('Retrieve organisation owner id');
+            const organisationOwnerIdQuery = 
+            `query OrganisationOwnerId($owner:String!, $name:String!) {
+              organization(login:$owner) {
+                id,
+                name,
+                repository(name: $name) {
+                  id,
+                  name
+                }
+              }
+            }`;
+            const organisationOwnerIdQueryVariables = {
+              owner: context.payload.repository.owner.login,
+              name: context.payload.repository.name
+            };
+            const organisationOwnerIdQueryResult = await github.graphql(
+              organisationOwnerIdQuery,
+              organisationOwnerIdQueryVariables
+            )
+            core.info(JSON.stringify(organisationOwnerIdQueryResult, null, 2))
+            core.endGroup();
+            return organisationOwnerIdQueryResult;
+
+      - name: Find project board
+        uses: actions/github-script@v9
+        id: get_project_board
+        with:
+          github-token: ${{ secrets.LB01_ADMIN }}
+          script: |
+            core.startGroup('Find project board');
+            const repoName = context.payload.repository.name;
+            const initials = repoName.replace(/-[^-]*$/, '');
+            const projectName = `${initials}-project`;
+            const outputGetOrgOwnerResult = ${{ steps.get_org_owner_id.outputs.result }};
+            const ownerId = outputGetOrgOwnerResult.organization.id;
+
+            // Find project board by name using graphql
+            const findProjectQuery = 
+            `query FindProject($ownerId:ID!, $projectName:String!) {
+              node(id:$ownerId) {
+                ... on Organization {
+                  projectsV2(first:100, query:$projectName) {
+                    nodes {
+                      id
+                      title
+                    }
+                  }
+                }
+              }
+            }`;
+            const findProjectQueryVariables = {
+              ownerId: ownerId,
+              projectName: projectName
+            };
+            const findProjectQueryResult = await github.graphql(
+              findProjectQuery,
+              findProjectQueryVariables
+            );
+            core.info(JSON.stringify(findProjectQueryResult, null, 2));
+            const projectBoardId = findProjectQueryResult.node.projectsV2.nodes.find(p => p.title === projectName)?.id;
+            if (projectBoardId) {
+              core.info(`Project board "${projectName}" found with id: ${projectBoardId}`);
+            } else {
+              core.info(`Project board "${projectName}" not found.`);
+              throw new Error(`Project board "${projectName}" not found.`);
+            }
+
+            core.endGroup();
+            return projectBoardId;
+
+      - name: Create Milestone
+        uses: actions/github-script@v9
+        id: create_milestone
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            core.startGroup('Create Milestone');
+            const outputGetOrgOwnerResult = ${{ steps.get_org_owner_id.outputs.result }};
+            const repoName = outputGetOrgOwnerResult.organization.repository.name;
+            const ownerName = outputGetOrgOwnerResult.organization.name;
+
+            const createMilestoneResult = await github.rest.issues.createMilestone({
+              owner: ownerName,
+              repo: repoName,
+              title: "Calculator Release 1.0",
+              description: "Milestone for initial Calculator Release 1.0."
+            });
+            core.info(`createMilestoneResult ${JSON.stringify(createMilestoneResult, null, 2)}`);
+            core.endGroup();
+            return createMilestoneResult;
+
+      - name: Create Issues
+        uses: actions/github-script@v9
+        id: create_issues
+        with:
+          github-token: ${{ secrets.LB01_ADMIN }}
+          script: |
+            core.startGroup('Create Issues');
+            const issues = [
+              {
+                title: '[Feature]: 1. Personalize project',
+                body: `
+                  1. Create feature branch
+                  2. Change name of project in package.json
+                  3. Install dependencies
+                  4. Test application
+                  5. Create pull request
+                `,
+                type: 'Feature'
+              },
+              {
+                title: '[Feature]: 2. Create CI pipeline',
+                body: `
+                  1. Create feature branch
+                  2. Create CI pipeline action and push it to GitHub
+                  3. Create pull request
+                `,
+                type: 'Feature'
+              },
+              {
+                title: '[Feature]: 3. Add Code Quality Checks to pipeline',
+                body: `
+                  1. Add Code Quality job to CI pipeline
+                  2. Commit and push changes to same pull request
+                `,
+                type: 'Feature'
+              },
+              {
+                title: '[Feature]: 4. Add Test',
+                body: `
+                  1. Add test job to CI pipeline
+                  2. Commit and push changes to same pull request
+                `,
+                type: 'Feature'
+              },
+              {
+                title: '[Feature]: 5. Add Test Coverage',
+                body: `
+                  1. Add test coverage step to build-test job in CI pipeline
+                  2. Commit and push changes to same pull request
+                `,
+                type: 'Feature'
+              },
+              {
+                title: '[Task]: 6. Create GitHub Secret for GitHub Packages',
+                body: `
+                  1. Create a Personal Access Token (PAT) with appropriate scopes
+                    1. repo scope
+                    2. workflow scope
+                  2. Create GitHub Secret named RELEASE_TOKEN in the repository settings
+                    1. Add the PAT as the value of the secret
+                `,
+                type: 'Task'
+              },
+              {
+                title: '[Feature]: 7. Make release on push main',
+                body: `
+                  1. Create release workflow
+                    1. Create local branch
+                    2. Set package version
+                    3. Commit version change
+                    4. Create Release workflow file
+                    5. Commit and push the branch to GitHub
+                    6. Create pull request
+                    7. Clean up your local repository
+                `,
+                type: 'Feature'
+              },
+              {
+                title: '[Feature]: 8. Publish to GitHub Packages on publish release',
+                body: `
+                  1. Create publish workflow
+                    1. Create local branch
+                    2. Create Release workflow file
+                    3. Commit and push the branch to GitHub
+                    4. Create pull request
+                    5. Clean up your local repository
+                `,
+                type: 'Feature'
+              }
+            ];
+
+            const assigneeLogin = context.actor;
+            core.info(`Assignee Login: ${assigneeLogin}`);
+
+            // Get assignee ID from login
+            const assigneeQuery = `
+              query GetAssigneeId($login: String!) {
+                user(login: $login) {
+                  id
+                }
+              }
+            `;
+            const assigneeResult = await github.graphql(assigneeQuery, { login: assigneeLogin });
+            const assigneeId = assigneeResult.user.id;
+            core.info(`Assignee Id: ${assigneeId}`);
+
+            const projectOutputResult = ${{ steps.get_project_board.outputs.result }};
+            const projectId = projectOutputResult;
+            core.info(`Project Id: ${projectId}`);
+
+            const milestoneOutputResult = ${{ steps.create_milestone.outputs.result }};
+            const milestoneNumber = milestoneOutputResult.data.number;
+
+            // Get milestone global ID from number
+            const outputGetOrgOwnerResult = ${{ steps.get_org_owner_id.outputs.result }};
+            const repositoryId = outputGetOrgOwnerResult.organization.repository.id;
+            const ownerName = outputGetOrgOwnerResult.organization.name;
+            const repoName = outputGetOrgOwnerResult.organization.repository.name;
+
+            const milestoneQuery = `
+              query GetMilestone($owner: String!, $repo: String!, $number: Int!) {
+                repository(owner: $owner, name: $repo) {
+                  milestone(number: $number) {
+                    id
+                  }
+                }
+              }
+            `;
+            const milestoneResult = await github.graphql(milestoneQuery, {
+              owner: ownerName,
+              repo: repoName,
+              number: milestoneNumber
+            });
+            const milestoneId = milestoneResult.repository.milestone.id;
+            core.info(`Milestone Id: ${milestoneId}`);
+            core.info(`Repository Id: ${repositoryId}`);
+
+            // Get organization issue types
+            const getOrgIssueTypesQuery = `
+              query GetOrgIssueTypes($orgLogin: String!) {
+                organization(login: $orgLogin) {
+                  issueTypes(first: 20) {
+                    nodes {
+                      id
+                      name
+                    }
+                  }
+                }
+              }
+            `;
+            const orgIssueTypesResult = await github.graphql(getOrgIssueTypesQuery, { 
+              orgLogin: ownerName 
+            });
+            const orgIssueTypes = orgIssueTypesResult.organization.issueTypes.nodes;
+            core.info(`Organization issue types: ${JSON.stringify(orgIssueTypes, null, 2)}`);
+
+            // Create a map of type name to type ID
+            const issueTypeMap = {};
+            orgIssueTypes.forEach(type => {
+              issueTypeMap[type.name] = type.id;
+            });            const randomClientMutationId = () => {
+              return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                const r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+              });
+            };
+
+            for (const issue of issues) {
+              const clientMutationId = randomClientMutationId();
+              
+              // Create issue without projectIds (not supported for ProjectV2)
+              const createIssuesMutation = `
+                mutation createIssue($repositoryId: ID!, $title: String!, $body: String!, $assigneeIds: [ID!]!, $milestoneId: ID, $clientMutationId: String!) {
+                  createIssue(input: {
+                    clientMutationId: $clientMutationId,
+                    repositoryId: $repositoryId,
+                    title: $title,
+                    body: $body,
+                    assigneeIds: $assigneeIds,
+                    milestoneId: $milestoneId
+                  }) {
+                    issue {
+                      id
+                      number
+                      title
+                    }
+                  }
+                }
+              `;
+              const createIssuesMutationVariables = {
+                clientMutationId: clientMutationId,
+                repositoryId: repositoryId,
+                assigneeIds: [assigneeId],
+                title: issue.title,
+                body: issue.body,
+                milestoneId: milestoneId
+              };
+              core.info(`Creating issue: ${issue.title}`);
+              
+              const createIssuesResult = await github.graphql(
+                createIssuesMutation,
+                createIssuesMutationVariables
+              );
+              const issueId = createIssuesResult.createIssue.issue.id;
+              const issueNumber = createIssuesResult.createIssue.issue.number;
+              core.info(`Issue #${issueNumber} created: ${createIssuesResult.createIssue.issue.title}`);
+              
+              // Set issue type based on the issue's type property
+              const issueTypeName = issue.type;
+              const issueTypeId = issueTypeMap[issueTypeName];
+              
+              if (issueTypeId) {
+                const updateIssueTypeMutation = `
+                  mutation UpdateIssueType($issueId: ID!, $issueTypeId: ID!) {
+                    updateIssueIssueType(input: {
+                      issueId: $issueId,
+                      issueTypeId: $issueTypeId
+                    }) {
+                      issue {
+                        id
+                        issueType {
+                          id
+                          name
+                        }
+                      }
+                    }
+                  }
+                `;
+                const updateIssueTypeResult = await github.graphql(updateIssueTypeMutation, {
+                  issueId: issueId,
+                  issueTypeId: issueTypeId
+                });
+                core.info(`Issue #${issueNumber} type set to: ${updateIssueTypeResult.updateIssueIssueType.issue.issueType.name}`);
+              } else {
+                core.warning(`Issue type "${issueTypeName}" not found in organization issue types`);
+              }
+              
+              // Add issue to ProjectV2 separately
+              const addToProjectMutation = `
+                mutation AddToProject($projectId: ID!, $contentId: ID!) {
+                  addProjectV2ItemById(input: {
+                    projectId: $projectId,
+                    contentId: $contentId
+                  }) {
+                    item {
+                      id
+                    }
+                  }
+                }
+              `;
+              const addToProjectResult = await github.graphql(addToProjectMutation, {
+                projectId: projectId,
+                contentId: issueId
+              });
+              const projectItemId = addToProjectResult.addProjectV2ItemById.item.id;
+              core.info(`Issue #${issueNumber} added to project`);
+              
+            }
+            core.endGroup();
+
+      - name: Associate the project board with the repository
+        uses: actions/github-script@v9
+        with:
+          github-token: ${{ secrets.LB01_ADMIN }}
+          script: |
+            core.startGroup('Associate the project board with the repository');
+            const outputGetOrgOwnerResult = ${{ steps.get_org_owner_id.outputs.result }};
+            const repositoryId = outputGetOrgOwnerResult.organization.repository.id;
+            const projectOutputResult = ${{ steps.get_project_board.outputs.result }};
+            const projectId = projectOutputResult;
+
+            const associateProjectMutation = `
+              mutation AssociateProject($projectId: ID!, $repositoryId: ID!) {
+                linkProjectV2ToRepository(input: {
+                  projectId: $projectId,
+                  repositoryId: $repositoryId
+                }) {
+                  repository {
+                    id
+                    name
+                  }
+                }
+              }
+            `;
+            const associateProjectResult = await github.graphql(associateProjectMutation, {
+              projectId: projectId,
+              repositoryId: repositoryId
+            });
+            core.info(`Project board linked to repository: ${associateProjectResult.linkProjectV2ToRepository.repository.name}`);
+            core.endGroup();
+
+      - name: Disable workflow
+        uses: actions/github-script@v9
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            core.startGroup('Disable workflow');
+
+            // EXAMPLE OF HOW TO USE THE REST API INSTEAD OF GRAPHQL
+
+            // Disable the workflow so it only runs once
+            const workflowFileName = 'prepare.yaml';
+            await github.rest.actions.disableWorkflow({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: workflowFileName
+            });
+
+            core.info(`Workflow "${workflowFileName}" has been disabled`);
+            core.info('This ensures the preparation workflow only runs once when the repository is created from the template');
+
+            core.endGroup();

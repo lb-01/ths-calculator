@@ -1,5 +1,5 @@
 {
-  "name": "lb-calculator",
+  "name": "@lb-01-ths-calculator",
   "version": "0.0.1",
   "description": "NodeJS module",
   "main": "lib/index.js",
@@ -15,17 +15,17 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/lb-01/master-module.git"
+    "url": "git+https://github.com/lb-01/ths-calculator.git"
   },
   "keywords": [
     "module"
   ],
-  "author": "",
+  "author": "Thomas",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/lb-01/master-module/issues"
+    "url": "https://github.com/lb-01/ths-calculator/issues"
   },
-  "homepage": "https://github.com/lb-01/master-module#readme",
+  "homepage": "https://github.com/lb-01/ths-calculator#readme",
   "devDependencies": {
     "@vitest/coverage-v8": "^2.1.8",
     "eslint": "^9.39.1",

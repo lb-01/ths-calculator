@@ -1,6 +1,6 @@
 {
   "name": "@lb-01-ths-calculator",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "description": "NodeJS module",
   "main": "lib/index.js",
   "type": "module",

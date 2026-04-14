@@ -1,0 +1,23 @@
+name: publish npm package
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  publish-package:
+    name: Publish Package
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout code from repository
+        uses: actions/checkout@v6
+      - name: Setup .npmrc file to publish to GitHub Packages
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          registry-url: "https://npm.pkg.github.com"
+          scope: "@lb-01"
+      - name: Publish to GitHub Packages
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

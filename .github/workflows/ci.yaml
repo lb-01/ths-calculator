@@ -5,9 +5,15 @@ on:
     branches: [main]
 
 jobs:
-  replace-me-later:
-     name: Dummy Job
-     runs-on: ubuntu-latest
-     steps:
-       - name: Say Hello
-         run: echo "Hello World"
+  code-quality:
+    name: Code Quality
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout code from repository
+        uses: actions/checkout@v6
+      - name: install dependencies
+        run: npm ci
+      - name: check code formatting
+        run: npm run prettier:check --if-present
+      - name: lint the code
+        run: npm run lint:check --if-present

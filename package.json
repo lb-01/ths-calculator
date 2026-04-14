@@ -1,5 +1,5 @@
 {
-  "name": "@lb-01-ths-calculator",
+  "name": "@lb-01/ths-calculator",
   "version": "1.0.0",
   "description": "NodeJS module",
   "main": "lib/index.js",

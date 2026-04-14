@@ -1,0 +1,32 @@
+name: Create new release
+
+on:
+   push:
+      branches:
+         - main
+
+jobs:
+   release:
+      name: Create Release
+      runs-on: ubuntu-latest
+      steps:
+         - name: checkout code from repository
+           uses: actions/checkout@v6
+         - name: get version from package.json
+           uses: actions/github-script@v8
+           id: version
+           with:
+              github-token: ${{secrets.GITHUB_TOKEN}}
+              result-encoding: string
+              script: |
+                 const pkjson = require(`${process.env.GITHUB_WORKSPACE}/package.json`);
+                 core.info(`Version: ${pkjson.version}`);
+                 return pkjson.version;
+         - name: Create Release
+           env:
+              GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+           run: |
+              gh release create v${{ steps.version.outputs.result }} \
+                 --generate-notes \
+                 -F RELEASE_NOTES.md \
+                 --title "Release v${{ steps.version.outputs.result }}"
